@@ -15,7 +15,7 @@
     "lint": "eslint src",
     "release": "pnpm build && changeset publish",
     "test": "jest",
-    "sample": "vite serve example --port 8080 --open"
+    "sample": "vite serve example --port 8080 --open --host"
   },
   "files": [
     "dist",
@@ -23,7 +23,8 @@
   ],
   "dependencies": {
     "@mediapipe/holistic": "0.5.1675471629",
-    "@mediapipe/tasks-vision": "0.10.9"
+    "@mediapipe/tasks-vision": "0.10.9",
+    "devcert": "^1.2.2"
   },
   "peerDependencies": {
     "livekit-client": "^1.12.0 || ^2.1.0"
