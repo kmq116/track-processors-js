@@ -24,15 +24,17 @@ import {
   facingModeFromLocalTrack,
   setLogLevel,
 } from 'livekit-client';
-import { BackgroundBlur, VirtualBackground } from '../src';
+import { AudioInsert, BackgroundBlur, VirtualBackground } from '../src';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+console.log(BackgroundBlur(10, { delegate: 'GPU' }));
 
 const state = {
   defaultDevices: new Map<MediaDeviceKind, string>(),
   bitrateInterval: undefined as any,
   blur: BackgroundBlur(10, { delegate: 'GPU' }),
   virtualBackground: VirtualBackground('/samantha-gades-BlIhVfXbi9s-unsplash.jpg'),
+  insertAudio: AudioInsert({}),
 };
 let currentRoom: Room | undefined;
 
@@ -54,8 +56,7 @@ const appActions = {
   connectWithFormInput: async () => {
     const url = (<HTMLInputElement>$('url')).value;
     const token = (<HTMLInputElement>$('token')).value;
-
-    setLogLevel(LogLevel.debug);
+    setLogLevel(LogLevel.silent);
     updateSearchParams(url, token);
 
     const roomOpts: RoomOptions = {
@@ -91,6 +92,9 @@ const appActions = {
     await room.prepareConnection(url);
     const prewarmTime = Date.now() - startTime;
     appendLog(`prewarmed connection in ${prewarmTime}ms`);
+    const { KrispNoiseFilter, isKrispNoiseFilterSupported } = await import(
+      '@livekit/krisp-noise-filter'
+    );
 
     room
       .on(RoomEvent.ParticipantConnected, participantConnected)
@@ -103,9 +107,16 @@ const appActions = {
           await room.engine.getConnectedServerAddress(),
         );
       })
-      .on(RoomEvent.LocalTrackPublished, (pub) => {
+      .on(RoomEvent.LocalTrackPublished, async (pub) => {
         const track = pub.track as LocalAudioTrack;
-
+        // if (!isKrispNoiseFilterSupported()) {
+        //   console.warn('enhanced noise filter is currently not supported on this browser');
+        //   return;
+        // }
+        // const krispProcessor = KrispNoiseFilter();
+        // console.log('enabling LiveKit enhanced noise filter');
+        // await track.setProcessor(krispProcessor);
+        // track.setProcessor(krispProcessor);
         if (track instanceof LocalAudioTrack) {
           const { calculateVolume } = createAudioAnalyser(track);
 
@@ -238,7 +249,16 @@ const appActions = {
     };
     videoPub.videoTrack?.restartTrack(options);
   },
+  toggleMusic: async () => {
+    if (!currentRoom) return;
+    console.log('toggleMusic');
+    setButtonDisabled('toggle-music-button', true);
 
+    const audioTrack = currentRoom.localParticipant.getTrackPublication(Track.Source.Microphone)!
+      .track as LocalAudioTrack;
+    console.log(audioTrack);
+    await audioTrack.setProcessor(state.insertAudio);
+  },
   toggleBlur: async () => {
     if (!currentRoom) return;
     setButtonDisabled('toggle-blur-button', true);
@@ -248,6 +268,7 @@ const appActions = {
         .track as LocalVideoTrack;
       if (camTrack.getProcessor()?.name !== 'background-blur') {
         await camTrack.stopProcessor();
+        console.log('背景虚化');
         await camTrack.setProcessor(state.blur);
       } else {
         await camTrack.stopProcessor();
@@ -621,6 +642,7 @@ function setButtonsForState(connected: boolean) {
     'disconnect-room-button',
     'toggle-blur-button',
     'toggle-virtual-bg-button',
+    'toggle-music-button',
   ];
   const disconnectedSet = ['connect-button'];
 
